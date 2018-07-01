@@ -255,7 +255,7 @@ func executeFieldsSerially(p executeFieldsParams) *Result {
 		p.Fields = map[string][]*ast.Field{}
 	}
 
-	finalResults := map[string]interface{}{}
+	finalResults := make(map[string]interface{}, len(p.Fields))
 	for responseName, fieldASTs := range p.Fields {
 		resolved, state := resolveField(p.ExecutionContext, p.ParentType, p.Source, fieldASTs)
 		if state.hasNoFieldDefs {
@@ -279,7 +279,7 @@ func executeFields(p executeFieldsParams) *Result {
 		p.Fields = map[string][]*ast.Field{}
 	}
 
-	finalResults := map[string]interface{}{}
+	finalResults := make(map[string]interface{}, len(p.Fields))
 	for responseName, fieldASTs := range p.Fields {
 		resolved, state := resolveField(p.ExecutionContext, p.ParentType, p.Source, fieldASTs)
 		if state.hasNoFieldDefs {
@@ -791,7 +791,7 @@ func completeListValue(eCtx *executionContext, returnType *List, fieldASTs []*as
 	}
 
 	itemType := returnType.OfType
-	completedResults := []interface{}{}
+	completedResults := make([]interface{}, 0, resultVal.Len())
 	for i := 0; i < resultVal.Len(); i++ {
 		val := resultVal.Index(i).Interface()
 		completedItem := completeValueCatchingError(eCtx, itemType, fieldASTs, info, val)
@@ -821,25 +821,37 @@ func defaultResolveTypeFn(p ResolveTypeParams, abstractType Abstract) *Object {
 	return nil
 }
 
+// FieldResolver is used in DefaultResolveFn when the the source value implements this interface.
+type FieldResolver interface {
+	// Resolve resolves the value for the given ResolveParams. It has the same semantics as FieldResolveFn.
+	Resolve(p ResolveParams) (interface{}, error)
+}
+
 // defaultResolveFn If a resolve function is not given, then a default resolve behavior is used
 // which takes the property of the source object of the same name as the field
 // and returns it as the result, or if it's a function, returns the result
 // of calling that function.
 func DefaultResolveFn(p ResolveParams) (interface{}, error) {
-	// try to resolve p.Source as a struct first
 	sourceVal := reflect.ValueOf(p.Source)
+	// Check if value implements 'Resolver' interface
+	if resolver, ok := sourceVal.Interface().(FieldResolver); ok {
+		return resolver.Resolve(p)
+	}
+
+	// try to resolve p.Source as a struct
 	if sourceVal.IsValid() && sourceVal.Type().Kind() == reflect.Ptr {
 		sourceVal = sourceVal.Elem()
 	}
 	if !sourceVal.IsValid() {
 		return nil, nil
 	}
+
 	if sourceVal.Type().Kind() == reflect.Struct {
 		for i := 0; i < sourceVal.NumField(); i++ {
 			valueField := sourceVal.Field(i)
 			typeField := sourceVal.Type().Field(i)
 			// try matching the field name first
-			if typeField.Name == p.Info.FieldName {
+			if strings.EqualFold(typeField.Name, p.Info.FieldName) {
 				return valueField.Interface(), nil
 			}
 			tag := typeField.Tag
