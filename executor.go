@@ -243,7 +243,7 @@ type executeFieldsParams struct {
 	ExecutionContext *executionContext
 	ParentType       *Object
 	Source           interface{}
-	Fields           map[string][]*ast.Field
+	Fields           map[string][]*ast.Field //TODO
 }
 
 // Implements the "Evaluating selection sets" section of the spec for "write" mode.
@@ -255,7 +255,7 @@ func executeFieldsSerially(p executeFieldsParams) *Result {
 		p.Fields = map[string][]*ast.Field{}
 	}
 
-	finalResults := make(map[string]interface{}, len(p.Fields))
+	finalResults := make(map[string]interface{}, len(p.Fields)) //TODO
 	for responseName, fieldASTs := range p.Fields {
 		resolved, state := resolveField(p.ExecutionContext, p.ParentType, p.Source, fieldASTs)
 		if state.hasNoFieldDefs {

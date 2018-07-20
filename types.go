@@ -6,7 +6,7 @@ import (
 
 // type Schema interface{}
 
-type Result struct {
+type Result struct { //TODO
 	Data   interface{}                `json:"data"`
 	Errors []gqlerrors.FormattedError `json:"errors,omitempty"`
 }
